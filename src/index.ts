@@ -99,7 +99,7 @@ async function readDirFiles(baseDir: string, filesArray: string[] = []) {
 
 const oldFiles: string[] = [];
 
-export function autoVersionVitePlugin(): Plugin {
+export default function autoVersionVitePlugin(): Plugin {
   return {
     name: "auto-version",
     buildStart() {
