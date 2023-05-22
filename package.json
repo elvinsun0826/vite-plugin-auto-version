@@ -1,0 +1,30 @@
+{
+  "name": "vite-plugin-auto-version",
+  "version": "1.0.0",
+  "description": "Auto generate project version when vite build",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "types": "dist/index.d.ts",
+  "keywords": [
+    "version",
+    "vite-plugin"
+  ],
+  "files": [
+    "dist"
+  ],
+  "author": "Elvin Sun",
+  "license": "MIT",
+  "devDependencies": {
+    "@types/node": "^20.2.3",
+    "typescript": "^5.0.4",
+    "vite": "^4.3.8"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/elvinsun0826/vite-plugin-auto-version.git"
+  }
+}
