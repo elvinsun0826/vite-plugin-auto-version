@@ -1,5 +1,16 @@
-import type { Plugin } from "vite";
+import type { Plugin, UserConfig } from "vite";
 import fs from "fs/promises";
+
+interface AutoVersionVitePluginOption {
+  version: string;
+  refreshTime: number;
+  insertCheck: boolean;
+}
+
+const oldFiles: string[] = [];
+let baseUrl = "/";
+let publicDir = "public";
+let outDir = "dist";
 
 async function readOldVersionFromFile(
   filePath: string
@@ -97,13 +108,41 @@ async function readDirFiles(baseDir: string, filesArray: string[] = []) {
   return filesArray.map((item) => item.replace("\\\\", "/"));
 }
 
-const oldFiles: string[] = [];
+function saveVersionToDir(version: string) {
+  saveJsonToFile({ version }, publicDir, "version");
+  saveJsonToFile({ version }, outDir, "version");
+  console.log(
+    `vite-plugin-auto-version: 版本文件生成成功，最新版本号:${version}！`
+  );
+}
 
-export default function autoVersionVitePlugin(): Plugin {
+export default function autoVersionVitePlugin(
+  options?: AutoVersionVitePluginOption
+): Plugin {
+  const inputVersion = options?.version;
+  const refreshTime = options?.refreshTime || 5 * 60 * 1000;
+  const insertCheck = options?.insertCheck || true;
   return {
     name: "auto-version",
+    apply: "build",
+    config(config: UserConfig) {
+      // 获取用户配置的公共目录
+      if (config.publicDir) {
+        publicDir = config.publicDir;
+      }
+      // 获取用户配置的打包输出目录
+      if (config.build?.outDir) {
+        outDir = config.build.outDir;
+      }
+      // 获取用户配置的公共路径
+      if (config.base && config.base !== "/") {
+        baseUrl = config.base;
+        if (!baseUrl.startsWith("/")) baseUrl = "/" + baseUrl;
+        if (!baseUrl.endsWith("/")) baseUrl = baseUrl + "/";
+      }
+    },
     buildStart() {
-      readDirFiles("dist")
+      readDirFiles(outDir)
         .then((files) => {
           oldFiles.length = 0;
           oldFiles.push(...files);
@@ -111,30 +150,39 @@ export default function autoVersionVitePlugin(): Plugin {
         .catch((err) => console.log(err));
     },
     closeBundle() {
-      readDirFiles("dist")
+      readDirFiles(outDir)
         .then((files) => {
-          if (!compareArrays(files, oldFiles)) {
-            readOldVersionFromFile("public/version.json").then((oldVersion) => {
-              let newVersion = "1.0.0";
-              if (oldVersion) {
-                newVersion = generateNewVersion(oldVersion);
-              }
-              saveJsonToFile({ version: newVersion }, "public", "version");
-              saveJsonToFile({ version: newVersion }, "dist", "version");
-              console.log("vite-plugin-auto-version: 版本文件生成成功！");
-            });
+          // 如果存在指定的版本号，则直接保存指定版本号（有可能想要强制更新版本号）
+          if (inputVersion) {
+            saveVersionToDir(inputVersion);
           }
+          readOldVersionFromFile(publicDir + "/version.json").then(
+            (oldVersion) => {
+              let newVersion = "1.0.0";
+              // 如果打包前后产物一致
+              if (compareArrays(files, oldFiles)) {
+                saveVersionToDir(oldVersion || newVersion);
+              } else {
+                // 如果打包前后产物不同
+                if (oldVersion) {
+                  newVersion = generateNewVersion(oldVersion);
+                }
+                saveVersionToDir(newVersion);
+              }
+            }
+          );
         })
         .catch((err) => console.log(err));
     },
     transformIndexHtml() {
+      if (!insertCheck) return;
       return [
         {
           tag: "script",
           children: `
           function getVersion() {
             const xhr = new XMLHttpRequest();
-            xhr.open('GET', '/version.json', true);
+            xhr.open('GET', '${baseUrl}version.json', true);
             xhr.onreadystatechange = function() {
               if(xhr.readyState === 4 && xhr.status === 200) {
                 const newVersion = JSON.parse(xhr.responseText);
@@ -150,7 +198,7 @@ export default function autoVersionVitePlugin(): Plugin {
             xhr.send();
           }
           getVersion();
-          setInterval(getVersion, 10 * 30 * 1000);
+          setInterval(getVersion, ${refreshTime});
           `,
           injectTo: "body",
         },

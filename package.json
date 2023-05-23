@@ -1,6 +1,6 @@
 {
   "name": "vite-plugin-auto-version",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Auto generate project version when vite build",
   "main": "dist/index.js",
   "type": "module",
